@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TerrainType {
+  PLAIN
+  FOREST
+  MOUNTAIN
+  DESERT
+  WATER
+  COAST
+}
+
+enum BuildingType {
+  WATER_WELL
+  FARM
+  LUMBER_MILL
+  STONE_QUARRY
+  MINE
+  MARKET
+  BARRACKS
+  WALL
+  TOWER
+  PALACE
+}
+
+enum NationRole {
+  LEADER
+  MEMBER
+}
+
+enum DiplomacyStatus {
+  NONE
+  ALLY
+  TRUCE
+  WAR
+}
+
+enum ActionType {
+  BUILD_BUILDING
+  UPGRADE_BUILDING
+  CONQUER_TILE
+  SEND_ARMY
+  CREATE_TRADE_ROUTE
+  UPDATE_TRADE_ROUTE
+  SEND_DIPLOMACY_REQUEST
+  RESPOND_DIPLOMACY_REQUEST
+}
+
+enum ActionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Player {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  email         String    @unique
+  passwordHash  String
+  avatarColor   String?   @default("#4a90d9")
+  gold          Int       @default(1000)
+  wood          Int       @default(500)
+  stone         Int       @default(500)
+  food          Int       @default(1000)
+  gems          Int       @default(0)
+  isLoggedIn    Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  nations       NationMember[]
+  actions       Action[]
+  loginHistory  LoginHistory[]
+  tradeRoutes   TradeRoute[]
+  foundedNation Nation?
+
+  @@map("players")
+}
+
+model Nation {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  color       String
+  founderId   String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  founder     Player         @relation(fields: [founderId], references: [id])
+  members     NationMember[]
+  tiles       Tile[]
+  buildings   Building[]
+  tradeRoutesA TradeRoute[]  @relation("tradeRouteA")
+  tradeRoutesB TradeRoute[]  @relation("tradeRouteB")
+  diplomacyAsA Diplomacy[]   @relation("diplomacyA")
+  diplomacyAsB Diplomacy[]   @relation("diplomacyB")
+
+  @@map("nations")
+}
+
+model NationMember {
+  id        String   @id @default(uuid())
+  playerId  String
+  nationId  String
+  role      NationRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  player  Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  nation  Nation @relation(fields: [nationId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, nationId])
+  @@map("nation_members")
+}
+
+model Tile {
+  id        String      @id @default(uuid())
+  x         Int
+  y         Int
+  terrain   TerrainType @default(PLAIN)
+  nationId  String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  nation    Nation?     @relation(fields: [nationId], references: [id], onDelete: SetNull)
+  buildings Building[]
+
+  @@unique([x, y])
+  @@index([x, y])
+  @@index([nationId])
+  @@map("tiles")
+}
+
+model Building {
+  id        String      @id @default(uuid())
+  type      BuildingType
+  level     Int         @default(1)
+  tileId    String
+  nationId  String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tile    Tile   @relation(fields: [tileId], references: [id], onDelete: Cascade)
+  nation  Nation @relation(fields: [nationId], references: [id], onDelete: Cascade)
+
+  @@unique([tileId, type])
+  @@index([nationId])
+  @@index([type])
+  @@map("buildings")
+}
+
+model TradeRoute {
+  id            String   @id @default(uuid())
+  playerId      String
+  nationIdA     String
+  nationIdB     String
+  tileXA        Int
+  tileYA        Int
+  tileXB        Int
+  tileYB        Int
+  goodsType     String
+  goodsAmount   Int
+  goldPerTick   Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  player    Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  nationA   Nation @relation("tradeRouteA", fields: [nationIdA], references: [id], onDelete: Cascade)
+  nationB   Nation @relation("tradeRouteB", fields: [nationIdB], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([nationIdA])
+  @@index([nationIdB])
+  @@map("trade_routes")
+}
+
+model Diplomacy {
+  id              String          @id @default(uuid())
+  nationIdA       String
+  nationIdB       String
+  status          DiplomacyStatus @default(NONE)
+  truceExpiresAt  DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  nationA Nation @relation("diplomacyA", fields: [nationIdA], references: [id], onDelete: Cascade)
+  nationB Nation @relation("diplomacyB", fields: [nationIdB], references: [id], onDelete: Cascade)
+
+  @@unique([nationIdA, nationIdB])
+  @@index([nationIdA])
+  @@index([nationIdB])
+  @@map("diplomacy")
+}
+
+model Action {
+  id          String       @id @default(uuid())
+  playerId    String
+  type        ActionType
+  status      ActionStatus @default(PENDING)
+  targetX     Int?
+  targetY     Int?
+  parameters  Json?
+  executesAt  DateTime
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([executesAt])
+  @@index([status])
+  @@map("actions")
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  playerId  String
+  loginAt   DateTime @default(now())
+  logoutAt  DateTime?
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([loginAt])
+  @@map("login_history")
+}
+
+model SpawnZone {
+  id          String   @id @default(uuid())
+  x           Int
+  y           Int
+  playerCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([x, y])
+  @@index([playerCount])
+  @@map("spawn_zones")
+}

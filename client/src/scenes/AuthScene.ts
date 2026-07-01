@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 export class AuthScene extends Phaser.Scene {
   private loginButton: Phaser.GameObjects.Text;
-  constuctor() {
+  constructor() {
     super({ key: 'AuthScene' });
   }
 
