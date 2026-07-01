@@ -5,6 +5,12 @@ export class BootScene extends Phaser.Scene {
   constructor() { super({ key: 'BootScene' }); }
 
   preload(): void {
+    // Hide HTML loading screen once Phaser starts loading
+    const htmlLoading = document.getElementById('loading');
+    if (htmlLoading) {
+      htmlLoading.style.display = 'none';
+    }
+    
     // Loading background
     this.add.graphics().fillStyle(0x1a1a2e, 1).fillRect(0, 0, this.scale.width, this.scale.height);
     

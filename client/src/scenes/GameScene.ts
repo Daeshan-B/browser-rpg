@@ -29,10 +29,28 @@ export class GameScene extends Phaser.Scene {
     const statusText = this.add.text(10, 70, 'Loading world data...', { font: '14px "Courier New"', color: '#fbbf24' }).setScrollFactor(0);
     const coordText = this.add.text(this.scale.width - 150, 10, 'Pos: 0, 0', { font: '14px "Courier New"', color: '#fbbf24' }).setOrigin(0, 0).setScrollFactor(0);
 
+    // Load player's nation to get spawn location
+    let playerSpawnX = 250;
+    let playerSpawnY = 250;
+    let nationColor = '#4a90d9';
+    let nationName = '';
+    
+    try {
+      const nationsData = await apiClient.getMyNations();
+      const myNation = nationsData.nations?.find((n: any) => n.role === 'LEADER');
+      if (myNation) {
+        playerSpawnX = myNation.spawnX || 250;
+        playerSpawnY = myNation.spawnY || 250;
+        nationColor = myNation.color || '#4a90d9';
+        nationName = myNation.name || '';
+        console.log(`🏰 Your nation: ${nationName} at (${playerSpawnX}, ${playerSpawnY})`);
+      }
+    } catch (err) { console.error('Failed to load nation:', err); }
+    
     // Load world info
     try {
       const worldInfo = await apiClient.getWorldInfo();
-      statusText.setText(`Tiles: ${worldInfo.world?.generatedTiles || 0} | Nations: ${worldInfo.world?.totalNations || 0}`);
+      statusText.setText(`Tiles: ${worldInfo.world?.generatedTiles || 0} | Nations: ${worldInfo.world?.totalNations || 0}${nationName ? ` | ${nationName}` : ''}`);
       console.log('🌍 World info loaded');
     } catch (err) { statusText.setText('Error loading world data'); }
 
@@ -69,9 +87,48 @@ export class GameScene extends Phaser.Scene {
       const wy = Math.floor(this.cameras.main.scrollY / TILE_SIZE_RENDER);
       coordText.setText(`Pos: ${wx}, ${wy} | Zoom: ${this.zoom.toFixed(1)}x | Tiles: ${this.tiles.size}`);
       this.loadVisibleChunks();
+      
+      // Pulse effect for spawn marker
+      if (this.spawnMarker) {
+        const scale = 1 + Math.sin(Date.now() / 500) * 0.3;
+        this.spawnMarker.setScale(scale);
+      }
     });
     
+    // Create player spawn marker
+    this.createSpawnMarker(playerSpawnX, playerSpawnY, nationColor);
+    
     console.log('🎮 GameScene ready with tile sprites!');
+  }
+
+  private spawnMarker: Phaser.GameObjects.Graphics | null = null;
+
+  private createSpawnMarker(x: number, y: number, color: string): void {
+    const px = x * TILE_SIZE_RENDER + TILE_SIZE_RENDER / 2;
+    const py = y * TILE_SIZE_RENDER + TILE_SIZE_RENDER / 2;
+    
+    // Create a pulsing circle marker
+    this.spawnMarker = this.add.graphics();
+    const colorInt = parseInt(color.replace('#', ''), 16);
+    
+    // Outer glow
+    this.spawnMarker.fillStyle(0xffffff, 0.3);
+    this.spawnMarker.fillCircle(px, py, TILE_SIZE_RENDER);
+    
+    // Inner circle
+    this.spawnMarker.fillStyle(colorInt, 1);
+    this.spawnMarker.fillCircle(px, py, TILE_SIZE_RENDER / 2);
+    
+    // Crown/flag icon (simple triangle)
+    this.spawnMarker.fillStyle(0xffffff, 1);
+    this.spawnMarker.beginPath();
+    this.spawnMarker.moveTo(px - 4, py - 8);
+    this.spawnMarker.lineTo(px + 4, py - 8);
+    this.spawnMarker.lineTo(px, py - 16);
+    this.spawnMarker.closePath();
+    this.spawnMarker.fillPath();
+    
+    console.log(`📍 Spawn marker created at (${x}, ${y})`);
   }
 
   private async loadChunk(chunkX: number, chunkY: number): Promise<void> {
@@ -110,6 +167,21 @@ export class GameScene extends Phaser.Scene {
     }
     
     sprite.setDisplaySize(TILE_SIZE_RENDER, TILE_SIZE_RENDER);
+    
+    // Visual indicator for nation ownership
+    if (tile.nation) {
+      const nationColorInt = parseInt(tile.nation.color.replace('#', ''), 16);
+      // Add semi-transparent colored overlay
+      const overlay = this.add.graphics();
+      overlay.fillStyle(nationColorInt, 0.35);
+      overlay.fillRect(x - TILE_SIZE_RENDER / 2, y - TILE_SIZE_RENDER / 2, TILE_SIZE_RENDER, TILE_SIZE_RENDER);
+      // Add border for stronger visibility
+      overlay.lineStyle(2, nationColorInt, 0.8);
+      overlay.strokeRect(x - TILE_SIZE_RENDER / 2, y - TILE_SIZE_RENDER / 2, TILE_SIZE_RENDER, TILE_SIZE_RENDER);
+      // Store overlay with tile for cleanup
+      (sprite as any).overlay = overlay;
+    }
+    
     this.tiles.set(key, sprite);
   }
 
