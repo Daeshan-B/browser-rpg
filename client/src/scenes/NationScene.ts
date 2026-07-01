@@ -11,14 +11,21 @@ export class NationScene extends Phaser.Scene {
   constructor() { super({ key: 'NationScene' }); }
 
   async create(): Promise<void> {
+    const hasNation = await this.checkExistingNation();
+    if (hasNation) { console.log('✅ Already has nation'); this.scene.start('GameScene'); return; }
     this.add.graphics().fillStyle(0x1a1a2e, 1).fillRect(0, 0, this.scale.width, this.scale.height);
     this.add.text(this.scale.width / 2, 60, 'CREATE YOUR NATION', { font: '36px "Courier New"', color: '#4a90d9', fontStyle: 'bold' }).setOrigin(0.5);
-    this.add.text(this.scale.width / 2, 100, 'Choose a name, color, and starting location', { font: '16px "Courier New"', color: '#888888' }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, 100, 'Choose name, color, and spawn location', { font: '16px "Courier New"', color: '#888888' }).setOrigin(0.5);
     this.createForm();
     this.createSpawnPreview();
     this.createButtons();
     this.statusText = this.add.text(this.scale.width / 2, this.scale.height - 80, '', { font: '14px "Courier New"', color: '#fbbf24' }).setOrigin(0.5);
     await this.loadSpawnZones();
+  }
+
+  private async checkExistingNation(): Promise<boolean> {
+    try { const r = await apiClient.getMyNations(); return r.nations?.some((n: any) => n.role === 'LEADER') === true; }
+    catch (err) { console.error('Check nations failed:', err); return false; }
   }
 
   private createForm(): void {
@@ -33,26 +40,23 @@ export class NationScene extends Phaser.Scene {
     const input = document.createElement('input');
     input.type = type; input.id = id; input.placeholder = placeholder;
     input.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:180px;height:25px;padding:5px;background:#1a1a2e;color:#fff;border:2px solid #4a90d9;border-radius:4px;font-size:14px;font-family:Courier New;`;
-    const container = this.game.canvas.parentElement;
-    if (container) container.appendChild(input);
+    this.game.canvas.parentElement?.appendChild(input);
     return input;
   }
 
   private createColorPicker(x: number, y: number, id: string): HTMLInputElement {
     const input = document.createElement('input');
-    input.type = 'color'; input.id = id;
+    input.type = 'color'; input.id = id; input.value = '#4a90d9';
     input.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:50px;height:30px;border:none;cursor:pointer;`;
-    input.value = '#4a90d9';
-    const container = this.game.canvas.parentElement;
-    if (container) container.appendChild(input);
+    this.game.canvas.parentElement?.appendChild(input);
     return input;
   }
 
   private createSpawnPreview(): void {
-    this.add.text(this.scale.width / 2, 240, 'Spawn Location (click map to select)', { font: '14px "Courier New"', color: '#888888' }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, 240, 'Click map to select spawn', { font: '14px "Courier New"', color: '#888888' }).setOrigin(0.5);
     const pw = 200, ph = 200, px = this.scale.width / 2 - pw / 2, py = 280;
     this.add.graphics().fillStyle(0x2a2a4e, 1).fillRect(px, py, pw, ph);
-    this.add.text(px + 10, py + 5, 'World Preview (500x500)', { font: '12px "Courier New"', color: '#666666' });
+    this.add.text(px + 10, py + 5, 'World (500x500)', { font: '12px "Courier New"', color: '#666666' });
     const scale = pw / 500;
     const g = this.add.graphics();
     g.lineStyle(1, 0x3a3a5e, 1);
@@ -80,10 +84,8 @@ export class NationScene extends Phaser.Scene {
   }
 
   private async loadSpawnZones(): Promise<void> {
-    try {
-      const response = await apiClient.getSpawnZones();
-      console.log('📍 Spawn zones:', response.spawnZones);
-    } catch (err) { console.error('Failed to load spawn zones:', err); }
+    try { const r = await apiClient.getSpawnZones(); console.log('📍 Spawn zones:', r.spawnZones); }
+    catch (err) { console.error('Load spawn zones failed:', err); }
   }
 
   private async createNation(): Promise<void> {
