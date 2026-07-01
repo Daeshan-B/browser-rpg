@@ -71,7 +71,7 @@ export class AuthScene extends Phaser.Scene {
     const response = await apiClient.login(email, password);
     if (this.statusText) { this.statusText.setText('Login successful!'); this.statusText.setColor('#4ade80'); }
     console.log('✅ Logged in:', response.user);
-    setTimeout(() => this.scene.start('GameScene'), 1000);
+    setTimeout(() => this.scene.start('NationScene'), 1000);
   }
 
   private async handleRegister(): Promise<void> {
@@ -80,7 +80,7 @@ export class AuthScene extends Phaser.Scene {
     const response = await apiClient.register(username, email, password);
     if (this.statusText) { this.statusText.setText('Registration successful!'); this.statusText.setColor('#4ade80'); }
     console.log('✅ Registered:', response.user);
-    setTimeout(() => this.scene.start('GameScene'), 1000);
+    setTimeout(() => this.scene.start('NationScene'), 1000);
   }
 
   private switchMode(): void {

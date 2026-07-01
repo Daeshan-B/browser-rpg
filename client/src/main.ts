@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { AuthScene } from './scenes/AuthScene';
+import { NationScene } from './scenes/NationScene';
 import { GameScene } from './scenes/GameScene';
 import { UIOverlay } from './scenes/UIOverlay';
 
@@ -14,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene, AuthScene, GameScene, UIOverlay],
+  scene: [BootScene, AuthScene, NationScene, GameScene, UIOverlay],
   physics: {
     default: 'arcade',
     arcade: {
@@ -25,7 +26,4 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-// Handle window resize
-window.addEventListener('resize', () => {
-  game.scale.resize(window.innerWidth, window.innerHeight);
-});
+window.addEventListener('resize', () => { game.scale.resize(window.innerWidth, window.innerHeight); });
