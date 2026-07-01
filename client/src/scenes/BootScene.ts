@@ -6,12 +6,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Show loading bar
     const { graphics } = this.scene;
-    
+
     // Loading background
     graphics.addGraphics().fillStyle(0x1a1a2e, 1).fillRect(0, 0, this.scale.width, this.scale.height);
-    
+
     // Loading text
     const loadingText = this.add.text(
       this.scale.width / 2,
@@ -31,12 +30,12 @@ export class BootScene extends Phaser.Scene {
 
     // Loading bar foreground
     const bar = this.add.graphics();
-    
+
     this.load.on('progress', (value: number) => {
       bar.clear();
       bar.fillStyle(0x4a90d9, 1);
       bar.fillRect(this.scale.width / 2 - 150, this.scale.height / 2, 300 * value, 30);
-      
+
       // Update percentage
       loadingText.setText(`LOADING... ${Math.round(value * 100)}%`);
     });
@@ -45,10 +44,17 @@ export class BootScene extends Phaser.Scene {
       loadingText.setText('READY!');
     });
 
-    // Load assets (we'll add actual assets later)
-    // For now, just transition after a brief moment
-    this.time.delayedCall(1000, () => {
-      this.scene.start('AuthScene');
+    // Load the tileset sprite sheet
+    this.load.image('tileset', 'assets/urizen_onebit_tileset__v2d0.png');
+
+    // Wait for assets to load, then transition
+    this.load.start();
+
+    this.load.on('complete', () => {
+      console.log('✅ All assets loaded!');
+      this.time.delayedCall(500, () => {
+        this.scene.start('AuthScene');
+      });
     });
   }
 

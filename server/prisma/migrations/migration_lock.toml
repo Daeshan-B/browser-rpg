@@ -1,0 +1,8 @@
+provider = "postgresql"
+migration_type = "migrate"
+
+[[migrations]]
+migration_name = "001_init"
+checksum = ""
+datetime = "2024-01-01T00:00:00.000000000Z"
+
