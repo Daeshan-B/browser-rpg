@@ -1,0 +1,20 @@
+{
+  "name": "browser-rpg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A retro 16-bit pixel art browser-based 2D RPG with nation-building and conquest",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspaces",
+    "install:all": "npm install && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
