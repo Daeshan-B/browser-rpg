@@ -2,10 +2,7 @@ import Phaser from 'phaser';
 import { apiClient } from '../api/client';
 import { getTerrainColor } from '../../assets/tile-config';
 
-interface TileData {
-  x: number; y: number; terrain: string;
-  nation?: { id: string; name: string; color: string; } | null;
-}
+interface TileData { x: number; y: number; terrain: string; nation?: { id: string; name: string; color: string; } | null; }
 
 export class GameScene extends Phaser.Scene {
   private tiles: Map<string, Phaser.GameObjects.Image> = new Map();
@@ -18,26 +15,22 @@ export class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   async create(): Promise<void> {
-    const { graphics, add, scale, cameraMain, inputs } = this;
-    graphics.addGraphics().fillStyle(0x0a0a1a, 1).fillRect(0, 0, scale.width, scale.height);
+    this.add.graphics().fillStyle(0x0a0a1a, 1).fillRect(0, 0, this.scale.width, this.scale.height);
+    this.add.text(10, 10, 'BrowserRPG World Map', { font: 'bold 20px "Courier New"', color: '#4ade80' }).setScrollFactor(0);
+    this.add.text(10, 40, 'WASD/Arrows: Move | +/- : Zoom', { font: '14px "Courier New"', color: '#888888' }).setScrollFactor(0);
     
-    const title = add.text(10, 10, 'BrowserRPG World Map', { font: 'bold 20px "Courier New"', color: '#4ade80' }).setScrollFactor(0);
-    const controls = add.text(10, 40, 'WASD/Arrows: Move | +/- : Zoom', { font: '14px "Courier New"', color: '#888888' }).setScrollFactor(0);
-    const statusText = add.text(10, 70, 'Loading world data...', { font: '14px "Courier New"', color: '#fbbf24' }).setScrollFactor(0);
-    const coordText = add.text(scale.width - 150, 10, 'Pos: 0, 0', { font: '14px "Courier New"', color: '#fbbf24' }).setOrigin(0, 0).setScrollFactor(0);
+    const statusText = this.add.text(10, 70, 'Loading world data...', { font: '14px "Courier New"', color: '#fbbf24' }).setScrollFactor(0);
+    const coordText = this.add.text(this.scale.width - 150, 10, 'Pos: 0, 0', { font: '14px "Courier New"', color: '#fbbf24' }).setOrigin(0, 0).setScrollFactor(0);
 
     try {
       const worldInfo = await apiClient.getWorldInfo();
       statusText.setText(`Tiles: ${worldInfo.world?.generatedTiles || 0} | Nations: ${worldInfo.world?.totalNations || 0}`);
       console.log('🌍 World info loaded');
-    } catch (err) {
-      statusText.setText('Error loading world data');
-    }
+    } catch (err) { statusText.setText('Error loading world data'); }
 
-    cameraMain.setViewport(0, 0, scale.width, scale.height,
-      (this.WORLD_WIDTH * this.TILE_SIZE) / 2,
-      (this.WORLD_HEIGHT * this.TILE_SIZE) / 2);
-    cameraMain.setZoom(this.zoom);
+    this.cameras.main.setZoom(this.zoom);
+    this.cameras.main.scrollX = (this.WORLD_WIDTH * this.TILE_SIZE) / 2 - this.scale.width / 2;
+    this.cameras.main.scrollY = (this.WORLD_HEIGHT * this.TILE_SIZE) / 2 - this.scale.height / 2;
 
     const cx = Math.floor((this.WORLD_WIDTH / 2) / this.CHUNK_SIZE);
     const cy = Math.floor((this.WORLD_HEIGHT / 2) / this.CHUNK_SIZE);
@@ -50,31 +43,27 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (inputs) {
-      inputs.on('down-UP', () => this.moveCamera(0, -100));
-      inputs.on('down-DOWN', () => this.moveCamera(0, 100));
-      inputs.on('down-LEFT', () => this.moveCamera(-100, 0));
-      inputs.on('down-RIGHT', () => this.moveCamera(100, 0));
-      inputs.on('down-PLUS', () => this.zoomIn());
-      inputs.on('down-MINUS', () => this.zoomOut());
-    }
+    this.input.keyboard?.on('down-UP', () => this.moveCamera(0, -100));
+    this.input.keyboard?.on('down-DOWN', () => this.moveCamera(0, 100));
+    this.input.keyboard?.on('down-LEFT', () => this.moveCamera(-100, 0));
+    this.input.keyboard?.on('down-RIGHT', () => this.moveCamera(100, 0));
+    this.input.keyboard?.on('down-PLUS', () => this.zoomIn());
+    this.input.keyboard?.on('down-MINUS', () => this.zoomOut());
 
     this.events.on('update', () => {
-      const wx = Math.floor(cameraMain.scrollX / this.TILE_SIZE);
-      const wy = Math.floor(cameraMain.scrollY / this.TILE_SIZE);
+      const wx = Math.floor(this.cameras.main.scrollX / this.TILE_SIZE);
+      const wy = Math.floor(this.cameras.main.scrollY / this.TILE_SIZE);
       coordText.setText(`Pos: ${wx}, ${wy} | Zoom: ${this.zoom.toFixed(1)}x`);
       this.loadVisibleChunks();
     });
-    console.log('🎮 GameScene ready! Fetching tiles from backend.');
+    console.log('🎮 GameScene ready!');
   }
 
   private async loadChunk(chunkX: number, chunkY: number): Promise<void> {
     try {
       const response = await apiClient.getChunk(chunkX, chunkY);
       if (response.chunk) {
-        for (const row of response.chunk) {
-          for (const tile of row) { this.renderTile(tile); }
-        }
+        for (const row of response.chunk) { for (const tile of row) { this.renderTile(tile); } }
         console.log(`✅ Chunk (${chunkX},${chunkY}) loaded`);
       }
     } catch (err) { console.error(`Failed to load chunk (${chunkX},${chunkY}):`, err); }
@@ -84,15 +73,8 @@ export class GameScene extends Phaser.Scene {
     const key = `${tile.x},${tile.y}`;
     if (this.tiles.has(key)) return;
     const color = getTerrainColor(tile.terrain);
-    const sprite = this.add.image(
-      tile.x * this.TILE_SIZE + this.TILE_SIZE / 2,
-      tile.y * this.TILE_SIZE + this.TILE_SIZE / 2,
-      'tileset'
-    ).setDisplaySize(this.TILE_SIZE, this.TILE_SIZE).setTint(parseInt(color.replace('#', ''), 16));
-    if (tile.nation?.color) {
-      const borderColor = parseInt(tile.nation.color.replace('#', ''), 16);
-      sprite.setStrokeStyle(2, borderColor);
-    }
+    const sprite = this.add.image(tile.x * this.TILE_SIZE + this.TILE_SIZE / 2, tile.y * this.TILE_SIZE + this.TILE_SIZE / 2, 'tileset')
+      .setDisplaySize(this.TILE_SIZE, this.TILE_SIZE).setTint(parseInt(color.replace('#', ''), 16));
     this.tiles.set(key, sprite);
   }
 
@@ -118,17 +100,7 @@ export class GameScene extends Phaser.Scene {
     cam.scrollY = Phaser.Math.Clamp(cam.scrollY + dy, 0, wh - cam.height);
   }
 
-  private zoomIn(): void {
-    this.zoom = Math.min(this.zoom * 1.2, 3.0);
-    this.cameras.main.setZoom(this.zoom);
-    this.loadVisibleChunks();
-  }
-
-  private zoomOut(): void {
-    this.zoom = Math.max(this.zoom / 1.2, 0.5);
-    this.cameras.main.setZoom(this.zoom);
-    this.loadVisibleChunks();
-  }
-
+  private zoomIn(): void { this.zoom = Math.min(this.zoom * 1.2, 3.0); this.cameras.main.setZoom(this.zoom); this.loadVisibleChunks(); }
+  private zoomOut(): void { this.zoom = Math.max(this.zoom / 1.2, 0.5); this.cameras.main.setZoom(this.zoom); this.loadVisibleChunks(); }
   update(): void {}
 }

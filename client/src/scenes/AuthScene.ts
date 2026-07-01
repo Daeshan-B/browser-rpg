@@ -1,88 +1,70 @@
 import Phaser from 'phaser';
+import { apiClient } from '../api/client';
 
 export class AuthScene extends Phaser.Scene {
-  private loginButton: Phaser.GameObjects.Text;
-  constructor() {
-    super({ key: 'AuthScene' });
-  }
+  private emailInput: string = '';
+  private passwordInput: string = '';
+  private currentMode: 'login' | 'register' = 'login';
+  private usernameInput: string = '';
+  private statusText: Phaser.GameObjects.Text | null = null;
+
+  constructor() { super({ key: 'AuthScene' }); }
 
   create(): void {
-    const { graphics, add, text, scale } = this;
+    this.add.graphics().fillStyle(0x1a1a2e, 1).fillRect(0, 0, this.scale.width, this.scale.height);
+    this.add.text(this.scale.width / 2, this.scale.height / 3, 'BROWSER RPG', { font: '48px "Courier New"', color: '#4a90d9', fontStyle: 'bold' }).setOrigin(0.5);
+    this.add.text(this.scale.width / 2, this.scale.height / 3 + 60, 'A Retro Nation Building Game', { font: '18px "Courier New"', color: '#888888' }).setOrigin(0.5);
+    this.add.graphics().fillStyle(0x2a2a4e, 1).fillRect(this.scale.width / 2 - 200, this.scale.height / 2, 400, 280);
     
-    // Background
-    graphics.addGraphics().fillStyle(0x1a1a2e, 1).fillRect(0, 0, scale.width, scale.height);
+    const y = this.scale.height / 2 + 40;
+    this.add.text(this.scale.width / 2 - 180, y, 'Email:', { font: '16px "Courier New"', color: '#cccccc' });
+    this.add.text(this.scale.width / 2 - 180, y + 30, this.emailInput || 'Enter email...', { font: '16px "Courier New"', color: this.emailInput ? '#ffffff' : '#888888' });
+    this.add.text(this.scale.width / 2 - 180, y + 60, 'Password:', { font: '16px "Courier New"', color: '#cccccc' });
+    this.add.text(this.scale.width / 2 - 180, y + 90, '•'.repeat(Math.min(this.passwordInput.length, 10)) || 'Enter password...', { font: '16px "Courier New"', color: this.passwordInput ? '#ffffff' : '#888888' });
     
-    // Title
-    const title = add.text(scale.width / 2, scale.height / 3, 'BROWSER RPG', {
-      font: '48px "Courier New"',
-      color: '#4a90d9',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    this.statusText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 240, '', { font: '14px "Courier New"', color: '#fbbf24' }).setOrigin(0.5);
     
-    const subtitle = add.text(scale.width / 2, scale.height / 3 + 60, 'A Retro Nation Building Game', {
-      font: '18px "Courier New"',
-      color: '#888888'
-    }).setOrigin(0.5);
+    const btnColor = '#4a90d9';
+    const primaryBtn = this.add.text(this.scale.width / 2 - 80, this.scale.height / 2 + 220, this.currentMode === 'login' ? '[ LOGIN ]' : '[ REGISTER ]', { font: '20px "Courier New"', color: '#ffffff', backgroundColor: btnColor }).setOrigin(0.5).setInteractive();
+    primaryBtn.on('pointerover', () => primaryBtn.setStyle({ backgroundColor: '#5aa0e9' }));
+    primaryBtn.on('pointerout', () => primaryBtn.setStyle({ backgroundColor: btnColor }));
+    primaryBtn.on('pointerdown', () => this.handlePrimaryAction());
     
-    // Login form container
-    const formBg = add.graphics();
-    formBg.fillStyle(0x2a2a4e, 1);
-    formBg.fillRect(scale.width / 2 - 200, scale.height / 2, 400, 300);
-    
-    // Username field placeholder
-    const usernameLabel = add.text(scale.width / 2 - 180, scale.height / 2 + 40, 'Username:', {
-      font: '16px "Courier New"',
-      color: '#cccccc'
-    });
-    
-    const usernameInput = add.text(scale.width / 2 - 180, scale.height / 2 + 70, 'Enter username...', {
-      font: '16px "Courier New"',
-      color: '#888888'
-    });
-    
-    // Email field placeholder
-    const emailLabel = add.text(scale.width / 2 - 180, scale.height / 2 + 120, 'Email:', {
-      font: '16px "Courier New"',
-      color: '#cccccc'
-    });
-    
-    const emailInput = add.text(scale.width / 2 - 180, scale.height / 2 + 150, 'Enter email...', {
-      font: '16px "Courier New"',
-      color: '#888888'
-    });
-    
-    // Buttons
-    const loginBtn = add.text(scale.width / 2 - 100, scale.height / 2 + 220, '[ LOGIN ]', {
-      font: '20px "Courier New"',
-      color: '#ffffff',
-      backgroundColor: '#4a90d9'
-    }).setOrigin(0.5).setInteractive();
-    
-    const registerBtn = add.text(scale.width / 2 + 100, scale.height / 2 + 220, '[ REGISTER ]', {
-      font: '20px "Courier New"',
-      color: '#ffffff',
-      backgroundColor: '#4a90d9'
-    }).setOrigin(0.5).setInteractive();
-    
-    // Button interactions
-    loginBtn.on('pointerover', () => loginBtn.setStyle({ backgroundColor: '#5aa0e9' }));
-    loginBtn.on('pointerout', () => loginBtn.setStyle({ backgroundColor: '#4a90d9' }));
-    loginBtn.on('pointerdown', () => this.handleLogin());
-    
-    registerBtn.on('pointerover', () => registerBtn.setStyle({ backgroundColor: '#5aa0e9' }));
-    registerBtn.on('pointerout', () => registerBtn.setStyle({ backgroundColor: '#4a90d9' }));
-    registerBtn.on('pointerdown', () => this.handleRegister());
+    const switchBtn = this.add.text(this.scale.width / 2 + 100, this.scale.height / 2 + 220, this.currentMode === 'login' ? '[ REGISTER ]' : '[ LOGIN ]', { font: '18px "Courier New"', color: '#ffffff', backgroundColor: '#333333' }).setOrigin(0.5).setInteractive();
+    switchBtn.on('pointerover', () => switchBtn.setStyle({ backgroundColor: '#444444' }));
+    switchBtn.on('pointerout', () => switchBtn.setStyle({ backgroundColor: '#333333' }));
+    switchBtn.on('pointerdown', () => this.switchMode());
   }
-  
-  private handleLogin(): void {
-    // TODO: Implement login logic
-    console.log('Login clicked');
-    // For now, just go to game scene
-    this.scene.start('GameScene');
+
+  private async handlePrimaryAction(): Promise<void> {
+    if (this.statusText) this.statusText.setText('Processing...');
+    try {
+      if (this.currentMode === 'login') await this.handleLogin();
+      else await this.handleRegister();
+    } catch (error: any) {
+      if (this.statusText) { this.statusText.setText(error.response?.data?.error || 'Error occurred'); this.statusText.setColor('#ff4444'); }
+    }
   }
-  
-  private handleRegister(): void {
-    // TODO: Implement register logic
-    console.log('Register clicked');
+
+  private async handleLogin(): Promise<void> {
+    if (!this.emailInput || !this.passwordInput) throw new Error('Enter email and password');
+    const response = await apiClient.login(this.emailInput, this.passwordInput);
+    if (this.statusText) { this.statusText.setText('Login successful!'); this.statusText.setColor('#4ade80'); }
+    console.log('✅ Logged in:', response.user);
+    setTimeout(() => this.scene.start('GameScene'), 1000);
+  }
+
+  private async handleRegister(): Promise<void> {
+    if (!this.usernameInput || !this.emailInput || !this.passwordInput) throw new Error('Fill all fields');
+    const response = await apiClient.register(this.usernameInput, this.emailInput, this.passwordInput);
+    if (this.statusText) { this.statusText.setText('Registration successful!'); this.statusText.setColor('#4ade80'); }
+    console.log('✅ Registered:', response.user);
+    setTimeout(() => this.scene.start('GameScene'), 1000);
+  }
+
+  private switchMode(): void {
+    this.currentMode = this.currentMode === 'login' ? 'register' : 'login';
+    this.usernameInput = ''; this.emailInput = ''; this.passwordInput = '';
+    this.scene.restart();
   }
 }
