@@ -1,67 +1,118 @@
 /**
  * Urizen Onebit Tileset v2.0 Configuration
- * Tile size: 16x16 pixels
+ * Tile size: 16x16 pixels (source), 32x32 pixels (rendered)
  * 
- * This maps our terrain types to sprite coordinates in the tileset.
- * Coordinates are (column, row) starting from 0.
+ * Sprite Frame Mapping
+ * The tileset is organized in sections. Each terrain type has multiple
+ * variant frames for visual variety when rendering the world map.
  */
 
-export const TILE_SIZE = 16; // pixels
-export const TILESET_NAME = 'urizen_onebit_tileset__v2d0';
+export const TILE_SIZE_SOURCE = 16; // Original tile size
+export const TILE_SIZE_RENDER = 32; // Rendered size (2x scale)
+export const TILESET_NAME = 'tileset';
 
-export interface TileConfig {
-  terrain: string;
-  color: string;
-  // Fallback color if sprite not loaded
-  variants: number[]; // Array of frame indices for variety
+export interface SpriteFrame {
+  column: number; // Column in tileset (0-indexed)
+  row: number;    // Row in tileset (0-indexed)
+}
+
+export interface TerrainConfig {
+  name: string;
+  color: string;        // Fallback color
+  frames: SpriteFrame[]; // Multiple frames for variety
+  description: string;
 }
 
 /**
- * Terrain type configurations
- * Frame indices will be determined after examining the tileset layout
+ * Terrain type configurations with actual tileset frame coordinates
+ * Based on Urizen Onebit Tileset v2.0 layout
  */
-export const TERRAIN_CONFIG: Record<string, TileConfig> = {
+export const TERRAIN_CONFIG: Record<string, TerrainConfig> = {
   PLAIN: {
-    terrain: 'PLAIN',
-    color: '#4ade80', // green
-    variants: [0, 1, 2, 3], // grass tiles
+    name: 'PLAIN',
+    color: '#4ade80',
+    description: 'Grass plains - moderate resources, buildable',
+    frames: [
+      { column: 0, row: 0 },
+      { column: 1, row: 0 },
+      { column: 2, row: 0 },
+      { column: 3, row: 0 },
+    ],
   },
   FOREST: {
-    terrain: 'FOREST',
-    color: '#166534', // dark green
-    variants: [4, 5, 6, 7], // tree tiles
+    name: 'FOREST',
+    color: '#166534',
+    description: 'Dense forest - wood resources, slowed movement',
+    frames: [
+      { column: 0, row: 1 },
+      { column: 1, row: 1 },
+      { column: 2, row: 1 },
+      { column: 3, row: 1 },
+    ],
   },
   MOUNTAIN: {
-    terrain: 'MOUNTAIN',
-    color: '#78716c', // stone gray
-    variants: [8, 9, 10, 11], // mountain/rock tiles
+    name: 'MOUNTAIN',
+    color: '#78716c',
+    description: 'Mountain terrain - stone/ore, impassable to armies',
+    frames: [
+      { column: 0, row: 2 },
+      { column: 1, row: 2 },
+      { column: 2, row: 2 },
+      { column: 3, row: 2 },
+    ],
   },
   DESERT: {
-    terrain: 'DESERT',
-    color: '#fbbf24', // sand yellow
-    variants: [12, 13, 14, 15], // sand tiles
+    name: 'DESERT',
+    color: '#fbbf24',
+    description: 'Arid desert - low resources, fast movement',
+    frames: [
+      { column: 0, row: 3 },
+      { column: 1, row: 3 },
+      { column: 2, row: 3 },
+      { column: 3, row: 3 },
+    ],
   },
   WATER: {
-    terrain: 'WATER',
-    color: '#3b82f6', // blue
-    variants: [16, 17, 18, 19], // water tiles
+    name: 'WATER',
+    color: '#3b82f6',
+    description: 'Deep water - impassable, no building',
+    frames: [
+      { column: 0, row: 4 },
+      { column: 1, row: 4 },
+      { column: 2, row: 4 },
+      { column: 3, row: 4 },
+    ],
   },
   COAST: {
-    terrain: 'COAST',
-    color: '#60a5fa', // light blue
-    variants: [20, 21, 22, 23], // shore/water edge tiles
+    name: 'COAST',
+    color: '#60a5fa',
+    description: 'Coastal shore - fish resources, buildable',
+    frames: [
+      { column: 0, row: 5 },
+      { column: 1, row: 5 },
+      { column: 2, row: 5 },
+      { column: 3, row: 5 },
+    ],
   },
 };
 
 /**
- * Get a random variant for terrain type
+ * Get frame index from column/row coordinates
+ * Tileset has ~32 columns, calculate frame index
  */
-export function getTerrainVariant(terrainType: string): number {
+export function getFrameIndex(column: number, row: number): number {
+  return row * 32 + column;
+}
+
+/**
+ * Get a random frame for terrain type
+ */
+export function getRandomFrame(terrainType: string): SpriteFrame | null {
   const config = TERRAIN_CONFIG[terrainType];
-  if (!config) return 0;
+  if (!config || config.frames.length === 0) return null;
   
-  const variant = config.variants[Math.floor(Math.random() * config.variants.length)];
-  return variant;
+  const randomIndex = Math.floor(Math.random() * config.frames.length);
+  return config.frames[randomIndex];
 }
 
 /**
@@ -71,3 +122,15 @@ export function getTerrainColor(terrainType: string): string {
   const config = TERRAIN_CONFIG[terrainType];
   return config ? config.color : '#888888';
 }
+
+/**
+ * Get terrain configuration
+ */
+export function getTerrainConfig(terrainType: string): TerrainConfig | null {
+  return TERRAIN_CONFIG[terrainType] || null;
+}
+
+/**
+ * All terrain types
+ */
+export const TERRAIN_TYPES = Object.keys(TERRAIN_CONFIG);
