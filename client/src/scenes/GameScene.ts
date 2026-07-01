@@ -11,10 +11,15 @@ interface TileData {
 
 export class GameScene extends Phaser.Scene {
   private tiles: Map<string, Phaser.GameObjects.Image> = new Map();
+  private selectedTile: TileData | null = null;
+  private selectedTileSprite: Phaser.GameObjects.Image | null = null;
   private CHUNK_SIZE = 32;
   private WORLD_WIDTH = 500;
   private WORLD_HEIGHT = 500;
   private zoom = 1;
+  private actionMenu: Phaser.GameObjects.Container | null = null;
+  private actionButton: Phaser.GameObjects.Text | null = null;
+  private closeActionButton: Phaser.GameObjects.Text | null = null;
 
   constructor() { super({ key: 'GameScene' }); }
 
@@ -73,13 +78,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Input handlers
+    // Input handlers - keyboard
     this.input.keyboard?.on('down-UP', () => this.moveCamera(0, -100));
     this.input.keyboard?.on('down-DOWN', () => this.moveCamera(0, 100));
     this.input.keyboard?.on('down-LEFT', () => this.moveCamera(-100, 0));
     this.input.keyboard?.on('down-RIGHT', () => this.moveCamera(100, 0));
     this.input.keyboard?.on('down-PLUS', () => this.zoomIn());
     this.input.keyboard?.on('down-MINUS', () => this.zoomOut());
+    
+    // Input handlers - mouse (tile selection)
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.handleTileClick(pointer));
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.handleTileHover(pointer));
+    this.input.on('pointerup', () => this.closeActionMenu());
 
     // Update loop
     this.events.on('update', () => {
@@ -98,7 +108,179 @@ export class GameScene extends Phaser.Scene {
     // Create player spawn marker
     this.createSpawnMarker(playerSpawnX, playerSpawnY, nationColor);
     
+    // Create action menu UI
+    this.createActionMenu();
+    
     console.log('🎮 GameScene ready with tile sprites!');
+  }
+  
+  private createActionMenu(): void {
+    // Create a dark semi-transparent background
+    this.actionMenu = this.add.container(0, 0);
+    
+    // Dark background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRect(10, 100, 300, 180);
+    this.actionMenu?.add(bg);
+    
+    // Title
+    const title = this.add.text(20, 15, 'Tile Actions', { 
+      font: 'bold 18px "Courier New"', 
+      color: '#ffffff' 
+    }).setScrollFactor(0);
+    this.actionMenu?.add(title);
+    
+    // Action button
+    this.actionButton = this.add.text(20, 50, 'Conquer Tile (C)', { 
+      font: '14px "Courier New"', 
+      color: '#4ade80',
+      backgroundColor: 'rgba(74, 222, 128, 0.2)'
+    }).setScrollFactor(0);
+    this.actionButton.setInteractive({ useHandCursor: true });
+    this.actionButton.on('pointerover', () => this.actionButton?.setTint(0x4ade80));
+    this.actionButton.on('pointerout', () => this.actionButton?.clearTint());
+    this.actionButton.on('pointerdown', () => this.conquerTile());
+    this.actionMenu?.add(this.actionButton);
+    
+    // Close button
+    this.closeActionButton = this.add.text(20, 150, 'Close (Esc)', { 
+      font: '14px "Courier New"', 
+      color: '#fbbf24',
+      backgroundColor: 'rgba(251, 191, 36, 0.2)'
+    }).setScrollFactor(0);
+    this.closeActionButton.setInteractive({ useHandCursor: true });
+    this.closeActionButton.on('pointerover', () => this.closeActionButton?.setTint(0xfbbf24));
+    this.closeActionButton.on('pointerout', () => this.closeActionButton?.clearTint());
+    this.closeActionButton.on('pointerdown', () => this.closeActionMenu());
+    this.actionMenu?.add(this.closeActionButton);
+  }
+  
+  private handleTileClick(pointer: Phaser.Input.Pointer): void {
+    // Convert screen coordinates to world coordinates
+    const worldX = pointer.worldX;
+    const worldY = pointer.worldY;
+    
+    const tileX = Math.floor((worldX - TILE_SIZE_RENDER / 2) / TILE_SIZE_RENDER);
+    const tileY = Math.floor((worldY - TILE_SIZE_RENDER / 2) / TILE_SIZE_RENDER);
+    
+    // Check if tile exists in our tiles map
+    const key = `${tileX},${tileY}`;
+    const sprite = this.tiles.get(key);
+    
+    if (sprite) {
+      // Check if tile is owned by another nation
+      if (sprite.getData('overlay')) {
+        this.showTileInfo(tileX, tileY);
+        return;
+      }
+      
+      this.selectTile(tileX, tileY);
+    } else {
+      console.log('Tile not found at', tileX, tileY);
+    }
+  }
+  
+  private handleTileHover(pointer: Phaser.Input.Pointer): void {
+    const worldX = pointer.worldX;
+    const worldY = pointer.worldY;
+    
+    const tileX = Math.floor((worldX - TILE_SIZE_RENDER / 2) / TILE_SIZE_RENDER);
+    const tileY = Math.floor((worldY - TILE_SIZE_RENDER / 2) / TILE_SIZE_RENDER);
+    
+    const key = `${tileX},${tileY}`;
+    const sprite = this.tiles.get(key);
+    
+    if (sprite) {
+      if (this.selectedTileSprite) {
+        this.selectedTileSprite.clearTint();
+      }
+      
+      if (sprite.getData('overlay')) {
+        sprite.setTint(0xffaa00); // Orange for owned by others
+        this.showTileInfo(tileX, tileY);
+      } else if (this.selectedTile) {
+        sprite.setTint(0x4ade80); // Green for selected
+      } else {
+        sprite.setTint(0x66bb66); // Light green for hover
+      }
+      
+      this.selectedTileSprite = sprite;
+    } else {
+      if (this.selectedTileSprite) {
+        this.selectedTileSprite.clearTint();
+      }
+      this.selectedTileSprite = null;
+    }
+  }
+  
+  private selectTile(tileX: number, tileY: number): void {
+    this.selectedTile = { x: tileX, y: tileY, terrain: 'PLAIN' };
+    this.updateActionMenu();
+  }
+  
+  private closeActionMenu(): void {
+    if (this.actionMenu) {
+      this.actionMenu.destroy();
+      this.actionMenu = null;
+    }
+    this.selectedTile = null;
+    this.selectedTileSprite?.clearTint();
+    this.selectedTileSprite = null;
+  }
+  
+  private updateActionMenu(): void {
+    if (!this.actionButton || !this.closeActionButton || !this.actionMenu) return;
+    
+    let terrainName = 'Unknown';
+    let conquerMessage = '';
+    
+    switch (this.selectedTile?.terrain) {
+      case 'PLAIN': terrainName = 'Grain Plains'; break;
+      case 'FOREST': terrainName = 'Dense Forest'; break;
+      case 'MOUNTAIN': terrainName = 'Mountain'; break;
+      case 'DESERT': terrainName = 'Desert'; break;
+      case 'WATER': terrainName = 'Water'; break;
+      case 'COAST': terrainName = 'Coast'; break;
+    }
+    
+    const tileKey = `${this.selectedTile?.x},${this.selectedTile?.y}`;
+    const tileData = this.tiles.get(tileKey);
+    
+    if (tileData) {
+      conquerMessage = tileData.getData('overlay') ? 'Owned by another nation!' : 'Ready to conquer';
+    }
+    
+    this.actionButton.setText(`Conquer ${terrainName} (C)\n${conquerMessage}`);
+  }
+  
+  private showTileInfo(x: number, y: number): void {
+    if (!this.actionButton) return;
+    
+    const key = `${x},${y}`;
+    const tileData = this.tiles.get(key);
+    let nationName = 'None';
+    
+    if (tileData) {
+      const nation = tileData.getData('nation');
+      nationName = nation ? nation.name : 'None';
+    }
+    
+    this.actionButton.setText(`Tile: (${x}, ${y})\nOwner: ${nationName}`);
+  }
+  
+  private conquerTile(): void {
+    if (!this.selectedTile) return;
+    
+    const { x, y } = this.selectedTile;
+    console.log(`🏰 Conquering tile (${x}, ${y})`);
+    
+    // TODO: Call API to conquer tile
+    // For now, just show feedback
+    this.closeActionMenu();
+    alert(`Conquered tile (${x}, ${y})!`);
+    
+    // TODO: Update tile ownership in database and UI
   }
 
   private spawnMarker: Phaser.GameObjects.Graphics | null = null;
@@ -179,10 +361,23 @@ export class GameScene extends Phaser.Scene {
       overlay.lineStyle(2, nationColorInt, 0.8);
       overlay.strokeRect(x - TILE_SIZE_RENDER / 2, y - TILE_SIZE_RENDER / 2, TILE_SIZE_RENDER, TILE_SIZE_RENDER);
       // Store overlay with tile for cleanup
-      (sprite as any).overlay = overlay;
+      sprite.setData('overlay', overlay);
+      sprite.setData('nation', tile.nation);
     }
     
     this.tiles.set(key, sprite);
+  }
+  
+  private cleanupTile(key: string): void {
+    const sprite = this.tiles.get(key);
+    if (sprite) {
+      const overlay = sprite.getData('overlay');
+      if (overlay) {
+        overlay.destroy();
+      }
+      sprite.destroy();
+      this.tiles.delete(key);
+    }
   }
 
   private loadVisibleChunks(): void {
@@ -191,6 +386,14 @@ export class GameScene extends Phaser.Scene {
     const vch = Math.ceil(cam.height / (TILE_SIZE_RENDER * this.zoom * this.CHUNK_SIZE)) + 1;
     const scx = Math.floor(cam.scrollX / (TILE_SIZE_RENDER * this.CHUNK_SIZE));
     const scy = Math.floor(cam.scrollY / (TILE_SIZE_RENDER * this.CHUNK_SIZE));
+    
+    // Cleanup tiles outside view
+    for (const [key] of this.tiles) {
+      const [tx, ty] = key.split(',').map(Number);
+      if (tx < scx - vcw || tx >= scx + vcw || ty < scy - vch || ty >= scy + vch) {
+        this.cleanupTile(key);
+      }
+    }
     
     for (let dy = -1; dy <= vch; dy++) {
       for (let dx = -1; dx <= vcw; dx++) {
